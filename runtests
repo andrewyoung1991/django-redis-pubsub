@@ -1,0 +1,1 @@
+py.test -xs --cov=redis_pubsub tests/ --cov-report term --cov-report html
