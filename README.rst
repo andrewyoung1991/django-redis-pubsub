@@ -4,8 +4,10 @@ Django Redis PubSub
 
 .. image:: https://travis-ci.org/andrewyoung1991/django-redis-pubsub.svg?branch=master
     :target: https://travis-ci.org/andrewyoung1991/django-redis-pubsub
+
 .. image:: https://coveralls.io/repos/github/andrewyoung1991/django-redis-pubsub/badge.svg?branch=master
     :target: https://coveralls.io/github/andrewyoung1991/django-redis-pubsub?branch=master
+
 .. image:: https://codeclimate.com/github/andrewyoung1991/django-redis-pubsub/badges/gpa.svg
     :target: https://codeclimate.com/github/andrewyoung1991/django-redis-pubsub
     :alt: Code Climate

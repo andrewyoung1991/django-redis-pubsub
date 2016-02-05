@@ -1,5 +1,4 @@
 language: python
-sudo: false
 python:
   - "3.4"
   - "3.5"
@@ -10,6 +9,7 @@ services:
 
 install:
   - pip install -r requirements/tests.txt
+  - pip install coveralls
   - pip install -e .
 
 before_script:
