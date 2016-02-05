@@ -1,26 +1,29 @@
+import json
 import asyncio
 
 import pytest
+from model_mommy import mommy
 
 from aiohttp import ws_connect, WSServerHandshakeError
-from aiohttp.web import Application
+from aiohttp.web import Application, MsgType
 
 from rest_framework.authtoken.models import Token
 
 from redis_pubsub.contrib.websockets import websocket, websocket_pubsub
+from testapp.models import Message
 
 
 def test_websocket_wrapper():
     loop = asyncio.get_event_loop()
 
-    @websocket()
+    @websocket("/")
     def handler(ws, params, **kwargs):
         ws.send_str("hello, world!")
 
     @asyncio.coroutine
     def start_server(loop):
-        app = Application(loop=loop)
-        app.router.add_route("GET", "/", handler)
+        app = Application()
+        app.router.add_route(*handler.route)
         srv = yield from loop.create_server(app.make_handler(), "localhost", 9000)
         return srv
 
@@ -43,7 +46,7 @@ def test_websocket_wrapper():
 def test_websocket_pubsub_wrapper(subscription):
     loop = asyncio.get_event_loop()
 
-    @websocket_pubsub()
+    @websocket_pubsub("/")
     def handler(ws, params, **kwargs):
         reader = subscription.get_reader(kwargs["manager"])
 
@@ -62,8 +65,8 @@ def test_websocket_pubsub_wrapper(subscription):
 
     @asyncio.coroutine
     def start_server(loop):
-        app = Application(loop=loop)
-        app.router.add_route("GET", "/", handler)
+        app = Application()
+        app.router.add_route(*handler.route)
         srv = yield from loop.create_server(app.make_handler(), "localhost", 9000)
         return srv
 
@@ -86,14 +89,14 @@ def test_websocket_pubsub_wrapper(subscription):
 def test_websocket_wrapper_authentication_error():
     loop = asyncio.get_event_loop()
 
-    @websocket(authenticate=True)
+    @websocket("/", authenticate=True)
     def handler(ws, params, **kwargs):
         ws.send_str("hello, world!")
 
     @asyncio.coroutine
     def start_server(loop):
-        app = Application(loop=loop)
-        app.router.add_route("GET", "/", handler)
+        app = Application()
+        app.router.add_route(*handler.route)
         srv = yield from loop.create_server(app.make_handler(), "localhost", 9000)
         return srv
 
@@ -114,14 +117,14 @@ def test_websocket_wrapper_authentication_error():
 def test_websocket_wrapper_invalid_token_error():
     loop = asyncio.get_event_loop()
 
-    @websocket(authenticate=True)
+    @websocket("/", authenticate=True)
     def handler(ws, params, **kwargs):
         ws.send_str("hello, world!")
 
     @asyncio.coroutine
     def start_server(loop):
-        app = Application(loop=loop)
-        app.router.add_route("GET", "/", handler)
+        app = Application()
+        app.router.add_route(*handler.route)
         srv = yield from loop.create_server(app.make_handler(), "localhost", 9000)
         return srv
 
@@ -144,15 +147,15 @@ def test_websocket_wrapper_valid_token(subscription):
     token, _ = Token.objects.get_or_create(user=subscription.subscriber)
     token = token.key
 
-    @websocket(authenticate=True)
+    @websocket("/", authenticate=True)
     def handler(ws, params, **kwargs):
         assert kwargs["user"].id == subscription.subscriber.id
         ws.send_str("hello, world!")
 
     @asyncio.coroutine
     def start_server(loop):
-        app = Application(loop=loop)
-        app.router.add_route("GET", "/", handler)
+        app = Application()
+        app.router.add_route(*handler.route)
         srv = yield from loop.create_server(app.make_handler(), "localhost", 9000)
         return srv
 
@@ -174,14 +177,14 @@ def test_websocket_wrapper_valid_token(subscription):
 def test_websocket_pubsub_wrapper_authentication_error():
     loop = asyncio.get_event_loop()
 
-    @websocket_pubsub(authenticate=True)
+    @websocket_pubsub("/", authenticate=True)
     def handler(ws, params, **kwargs):
         ws.send_str("hello, world!")
 
     @asyncio.coroutine
     def start_server(loop):
-        app = Application(loop=loop)
-        app.router.add_route("GET", "/", handler)
+        app = Application()
+        app.router.add_route(*handler.route)
         srv = yield from loop.create_server(app.make_handler(), "localhost", 9000)
         return srv
 
@@ -202,14 +205,14 @@ def test_websocket_pubsub_wrapper_authentication_error():
 def test_websocket_pubsub_wrapper_invalid_token_error():
     loop = asyncio.get_event_loop()
 
-    @websocket_pubsub(authenticate=True)
+    @websocket_pubsub("/", authenticate=True)
     def handler(ws, params, **kwargs):
         ws.send_str("hello, world!")
 
     @asyncio.coroutine
     def start_server(loop):
-        app = Application(loop=loop)
-        app.router.add_route("GET", "/", handler)
+        app = Application()
+        app.router.add_route(*handler.route)
         srv = yield from loop.create_server(app.make_handler(), "localhost", 9000)
         return srv
 
@@ -232,7 +235,7 @@ def test_websocket_pubsub_wrapper_valid_token(subscription):
     token, _ = Token.objects.get_or_create(user=subscription.subscriber)
     token = token.key
 
-    @websocket_pubsub(authenticate=True)
+    @websocket_pubsub("/", authenticate=True)
     def handler(ws, params, **kwargs):
         assert kwargs["user"].id == subscription.subscriber.id
         reader = subscription.get_reader(kwargs["manager"])
@@ -247,8 +250,8 @@ def test_websocket_pubsub_wrapper_valid_token(subscription):
 
     @asyncio.coroutine
     def start_server(loop):
-        app = Application(loop=loop)
-        app.router.add_route("GET", "/", handler)
+        app = Application()
+        app.router.add_route(*handler.route)
         srv = yield from loop.create_server(app.make_handler(), "localhost", 9000)
         return srv
 
@@ -266,6 +269,59 @@ def test_websocket_pubsub_wrapper_valid_token(subscription):
         yield from pub()
         message = yield from client.receive()
         assert message.data == subscription.channel.name
+        yield from client.close()
+
+        srv.close()
+        yield from srv.wait_closed()
+
+    loop.run_until_complete(go(loop))
+
+
+@pytest.mark.django_db
+def test_all_subscriptions(subscription):
+    loop = asyncio.get_event_loop()
+    token, _ = Token.objects.get_or_create(user=subscription.subscriber)
+    token = token.key
+
+    message = mommy.make(Message,
+        channel=subscription.channel,
+        to_user=subscription.subscriber)
+
+    @websocket_pubsub("/", authenticate=True)
+    def subscriptions(ws, params, user, manager):
+
+        def callback(channel_name, model):
+            ws.send_str(model.serialize())
+            return False
+
+        yield from manager.listen_to_all_subscriptions(user, callback)
+
+        while True:
+            message = yield from ws.receive()
+            if message.tp in (MsgType.ERROR, MsgType.CLOSE):
+                break
+
+    @asyncio.coroutine
+    def start_server(loop):
+        app = Application()
+        app.router.add_route(*subscriptions.route)
+        srv = yield from loop.create_server(app.make_handler(), "localhost", 9000)
+        return srv
+
+    @asyncio.coroutine
+    def go(loop):
+        srv = yield from start_server(loop)
+        uri = "http://localhost:9000?token=" + token
+        client = yield from ws_connect(uri)
+
+        yield from asyncio.sleep(1)
+        message.save()
+
+        message_ = yield from client.receive()
+        data = json.loads(message_.data)
+        message.refresh_from_db()
+        assert data[0]["pk"] == message.pk
+
         yield from client.close()
 
         srv.close()

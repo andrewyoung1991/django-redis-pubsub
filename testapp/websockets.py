@@ -2,8 +2,7 @@ import asyncio
 
 from redis_pubsub.contrib.websockets import websocket_pubsub
 
-
-@websocket_pubsub(authenticate=True)
+@websocket_pubsub("/", authenticate=True)
 def handler(ws, params, **kwargs):
     user = kwargs["user"]
     manager = kwargs["manager"]
@@ -18,3 +17,6 @@ def handler(ws, params, **kwargs):
 
     listener = yield from reader.listen()
     yield from asyncio.gather(listener)
+
+
+handlersconf = ["handler"]

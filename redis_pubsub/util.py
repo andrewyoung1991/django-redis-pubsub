@@ -12,7 +12,13 @@ import redis
 import aioredis
 
 from . import REDIS_PUBSUB
+from .compat import ensure_future
 
+
+__all__ = (
+    "ASYNCREDIS", "SYNCREDIS", "get_async_redis", "get_redis", "redis_channel_reader",
+    "redis_channel_publish", "ChannelReader", "SubscriptionManager"
+    )
 
 global SYNCREDIS, ASYNCREDIS
 SYNCREDIS = None
@@ -85,6 +91,13 @@ class ChannelReader:
         correspondence_reader.set_model(Message)
 
         future = yield from correspondence_reader.listen()
+
+    :param subscriber: and instance of settings.AUTH_USER_MODEL
+    :param channel: an instance of redis_pubsub.Channel
+    :param manager: an instance of redis_pubsub.util.SubscriptionManager
+    :param future: an instance of asyncio.Task
+    :param _callback: a coroutine to call when a publication is received through the
+        subscription channel.
     """
     def __init__(self, subscription, manager=None):
         self.subscriber = subscription.subscriber
@@ -153,7 +166,7 @@ class ChannelReader:
         """
         yield from self.get_manager()
         channel = (yield from self.manager.redis.subscribe(self.channel.name))[0]
-        self.future = asyncio.ensure_future(redis_channel_reader(channel, self._callback))
+        self.future = ensure_future(redis_channel_reader(channel, self._callback))
         return self.future
 
     @asyncio.coroutine
@@ -171,6 +184,7 @@ class SubscriptionManager:
     def __init__(self, redis_):
         self.readers = {}
         self.redis = redis_
+        self._future = None
 
     def add(self, *readers):
         for reader in readers:
@@ -190,10 +204,42 @@ class SubscriptionManager:
     @asyncio.coroutine
     def clear(self):
         coroutines = [self.remove(reader) for reader in self.readers.values()]
-        yield from asyncio.gather(*coroutines)
+        self._future = yield from asyncio.gather(*coroutines)
+
+    @asyncio.coroutine
+    def wait_closed(self):
+        if self._future:
+            yield from self._future
 
     @asyncio.coroutine
     def stop(self):
         yield from self.clear()
+        yield from self.wait_closed()
         self.redis.close()
         yield from self.redis.wait_closed()
+
+    @asyncio.coroutine
+    def listen_to_all_subscriptions(self, subscriber, callback):
+        """ a generic way to listen to all of a clients subscriptions providing a single
+        callback. in a websocket setting, you might write something like this::
+
+            @websocket_pubsub(authenticate=True)
+            def subscriptions(ws, params, user, manager):
+
+                def callback(channel_name, model):
+                    ws.send_str("ping")
+                    response = yield from ws.receive()
+                    if response.data == "pong":
+                        ws.send_str(model.serialize())
+                        return True
+                    return False
+
+                yield from manager.listen_to_all_subscriptions(user, callback)
+
+        this method fires all subscriptions with the same callback routine, any and all
+        or these subscriptions is cancellable using the `.remove` method.
+        """
+        for subscription in subscriber.subscriptions.all():
+            reader = subscription.get_reader(manager=self)
+            reader.callback(callback)
+            yield from reader.listen()

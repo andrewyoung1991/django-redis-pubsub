@@ -74,7 +74,7 @@ def test_publish_reader(subscription):
 @pytest.mark.django_db
 def test_channel_subscription_returns_reader(subscription):
     reader = subscription.channel.subscribe(subscription.subscriber)
-    assert isinstance(reader, util.ChannelReader)
+    assert isinstance(reader, models.Subscription)
 
 
 @pytest.mark.django_db

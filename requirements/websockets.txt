@@ -1,0 +1,7 @@
+-r common.txt
+aiohttp==0.20.2
+chardet==2.3.0
+djangorestframework==3.3.2
+djangorestframework-jwt==1.7.2
+hiredis==0.2.0
+PyJWT==1.4.0

@@ -8,8 +8,6 @@ from aiohttp.web import Application
 
 from rest_framework.authtoken.models import Token
 
-from redis_pubsub.contrib.websockets import websocket, websocket_pubsub
-
 from testapp.models import Message
 from testapp.websockets import handler
 
@@ -18,8 +16,7 @@ from testapp.websockets import handler
 def test_message_subscription(subscription):
     subscription.channel.name = "{0}:messages".format(subscription.subscriber.username)
     subscription.channel.save()
-    message = mommy.make(Message, to_user=subscription.subscriber)
-    message.channels.add(subscription.channel)
+    message = mommy.make(Message, channel=subscription.channel, to_user=subscription.subscriber)
 
     loop = asyncio.get_event_loop()
     token, _ = Token.objects.get_or_create(user=subscription.subscriber)
@@ -33,7 +30,9 @@ def test_message_subscription(subscription):
     @asyncio.coroutine
     def start_server(loop):
         app = Application(loop=loop)
-        app.router.add_route("GET", "/", handler)
+        app.router.add_route(*handler.route)
+        routes = app.router.routes()._urls
+        assert len(routes), routes
         srv = yield from loop.create_server(app.make_handler(), "localhost", 9000)
         return srv
 
