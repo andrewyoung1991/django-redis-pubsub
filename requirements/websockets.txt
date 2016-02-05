@@ -1,3 +1,4 @@
+-r common.txt
 aiohttp==0.20.2
 chardet==2.3.0
 djangorestframework==3.3.2
