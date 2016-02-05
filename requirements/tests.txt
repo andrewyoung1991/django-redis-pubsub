@@ -1,5 +1,4 @@
 -r common.txt
--r websockets.txt
 model-mommy==1.2.6
 coverage==4.0.3
 six==1.10.0
@@ -8,3 +7,9 @@ py==1.4.31
 pytest==2.8.7
 pytest-cov==2.2.1
 pytest-django==2.9.1
+aiohttp==0.20.2
+chardet==2.3.0
+djangorestframework==3.3.2
+djangorestframework-jwt==1.7.2
+hiredis==0.2.0
+PyJWT==1.4.0
