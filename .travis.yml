@@ -1,6 +1,9 @@
 language: python
 sudo: false
-python: '3.5'
+python:
+  - "3.4"
+  - "3.5"
+  - "3.5-dev"
 
 services:
   - redis-server
@@ -15,3 +18,5 @@ before_script:
 
 script:
   - ./runtests
+
+after_success: coveralls
