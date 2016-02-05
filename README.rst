@@ -2,6 +2,9 @@
 Django Redis PubSub
 ===================
 
+.. image:: https://travis-ci.org/andrewyoung1991/django-redis-pubsub.svg?branch=master
+    :target: https://travis-ci.org/andrewyoung1991/django-redis-pubsub
+
 asyncronous subscription distrobution for django (with websocket support!!!!).
 
 
