@@ -1,0 +1,14 @@
+language: python
+sudo: false
+python: '3.5'
+
+install:
+  - pip install -r requirements/test.txt
+  - pip install -e .
+
+before_script:
+  - export DJANGO_SETTINGS_MODULE=tests.travis
+  - psql -c 'CREATE DATABASE travis_ci_test;' -U postgres
+
+script:
+  - ./runtests
