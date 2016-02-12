@@ -59,17 +59,23 @@ class Channel(models.Model):
 
     @property
     def active(self):
+        """ provides information on whether or not this channel is active, i.e. has
+        active subscriptions. this property is used in the `publish` method to ensure no
+        unnecessary publish actions are executed if there aren't any listeners.
+        """
         return self.subscribers.filter(active=True).exists()
 
     def subscribe(self, subscriber):
-        """ returns an unmanaged ChannelReader object
+        """ returns a Subscription instance.
         """
-        model, _ = Subscription.objects\
-                    .get_or_create(subscriber=subscriber, channel=self)
+        model, _ = Subscription.objects.get_or_create(subscriber=subscriber, channel=self)
+        model.active = True
+        model.save()
         return model
 
     def publish(self, model):
-        """
+        """ reduces the model into a json serializable dict that can be recovered by a
+        subscriber coroutine.
         """
         if self.active:  # pragma: no branch
             klass = type(model)
@@ -84,7 +90,7 @@ class Channel(models.Model):
 
 class Subscription(models.Model):
     """ A subscriber can have many subscriptions to unique channels. a subscription may
-    also be `turned off` by setting `.active = False`
+    also be *turned off* by setting `.active = False`
     """
     subscriber = models.ForeignKey(user_model, related_name="subscriptions")
     channel = models.ForeignKey("Channel", related_name="subscribers")
@@ -118,7 +124,73 @@ class Subscription(models.Model):
 
 class ReceivedPublication(models.Model):
     """ a utility model for tracking the delivery status of a publication. Whenever a
-    publishable model is published and sent to a subscriber.
+    publishable model is published and sent to a subscriber. this model is mainly a
+    utility method for debugging whether or not a PublishableModel was delivered. If,
+    for instance, a model is published and there are no subscribers actively listening,
+    then no ReceivedPublication will be created. A useful query, to catch users back up
+    on their subscriptions is to find all the PublishableModels that publish on channels
+    a user subscribes to and cross reference those with non-existing
+    ReceivedPublications.
+
+    .. code:: python
+
+        message = Message.objects.first()
+        subscribers = message.channel.subscribers.all()
+        received = ReceivedPublication.objects.filter(
+            publication=message, channel=message.channel, subscriber__in=subscribers
+            )
+        received_by = received.values_list("subscriber_id", flat=True)
+        not_received_by = subscribers.exclude(id__in=received_by)
+        # do something with the subscribers who have not received this message.
+
+        # or, with the subscriber as the starting point
+        subscriptions = subscriber.subscriptions.select_related("channel")
+        channels = (s.channel for s in subscriptions)
+        publications = []
+        for channel in channels:
+            if hasattr(channel, "publishable_messages"):
+                messages = channel.publishable_messages.all()
+                publications.extend(messages)
+        received = ReceivedPublication.objects.filter(
+            channel=channel, subscriber=subscriber, publication__in=publications
+            ).values_list("publication_id", flat=True)
+        not_received = Message.objects.exclude(id__in=received)
+
+    it may be wise in your application to create an additional utility model that acts
+    as a queue for undelivered publications.
+
+    .. code:: python
+
+        class QueuedPublication(models.Model):
+            subscriber = models.ForeignKey(settings.AUTH_USER_MODEL,
+                                            related_name="queued_publications")
+            publication_type = models.ForeignKey(ContentType, null=True)
+            publication_id = models.PositiveIntegerField(null=True)
+            publication = GenericForeignKey("publication_type", "publication_id")
+
+            @classmethod
+            def find_all_undelivered(cls):
+                queue = []
+                for publishable in PublishableModel.__subclasses__():
+                    for instance in publishable.objects\
+                                            .select_related("channel")\
+                                            .prefetch_related("channel__subscribers"):
+                        channel = instance.channel
+                        subscribers = channel.subscribers.all()
+                        received = ReceivedPublication.objects.filter(
+                            publication=instance, channel=message.channel,
+                            subscriber__in=subscribers
+                            ).values_list("subscriber_id", flat=True)
+                        not_received_by = subscribers.exclude(id__in=received_by)
+                        for subscriber in not_received_by:
+                            queued = cls(subscriber=subscriber, publication=instance)
+                            queue.append(queued)
+                cls.objects.bulk_create(queue)
+
+    the preceeding model could run its `find_all_undelivered` method in a cronjob, and
+    perhaps, deliver all of the publications the next time the subscriber is connected.
+    of course, this code would have to be cleaned up as it inherently allows for a
+    massive amount of duplication.
     """
     channel = models.ForeignKey("Channel", related_name="publications")
     subscriber = models.ForeignKey(user_model, related_name="received_publications")

@@ -29,16 +29,18 @@ def handle_auth(token):
     if user is None:
         raise HTTPForbidden(body=b"invalid token")
     return user
-    
-    
+
+
 def _clean_route(route):
     """ ensure that the route can be prefixed with os.path.join and ends with a slash if.
     """
     if route.startswith("/"):
         route = route[1:]
     route_ = os.path.join(REDIS_PUBSUB["websocket_url_prefix"], route)
-    if not route_.endswith("/") and settings.APPEND_SLASH:
+    if not route_.endswith("/") and REDIS_PUBSUB["append_slash"]:  # pragma: no branch
         route_ = route_ + "/"
+    if not route_.startswith("/"):
+        route_ = "/" + route_
     return route_
 
 
@@ -93,14 +95,13 @@ def websocket_pubsub(route, authenticate=False):
             if authenticate:
                 kwargs["user"] = handle_auth(params.get("token", None))
 
-            ws = WebSocketResponse()
-            yield from ws.prepare(request)
-
             redis_ = yield from get_async_redis()
             manager = SubscriptionManager(redis_)
 
             kwargs["manager"] = manager
+            ws = WebSocketResponse()
             try:
+                yield from ws.prepare(request)
                 yield from func(ws, params, **kwargs)
                 yield from manager.stop()
             except Exception as err:  # pragma: no cover

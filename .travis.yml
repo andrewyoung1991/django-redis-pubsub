@@ -1,22 +1,24 @@
 language: python
 python:
-  - "3.4"
-  - "3.5"
-  - "3.5-dev"
-
+- '3.4'
+- '3.5'
+- 3.5-dev
 services:
-  - redis-server
-
+- redis-server
 install:
-  - pip install -r requirements/tests.txt
-  - pip install coveralls
-  - pip install -e .
-
+- pip install -r requirements/tests.txt
+- pip install coveralls
+- pip install -e .
 before_script:
-  - export DJANGO_SETTINGS_MODULE=tests.travis
-  - psql -c 'CREATE DATABASE travis_ci_test;' -U postgres
-
+- export DJANGO_SETTINGS_MODULE=tests.travis
+- psql -c 'CREATE DATABASE travis_ci_test;' -U postgres
 script:
-  - ./runtests
-
+- "./runtests"
 after_success: coveralls
+deploy:
+  provider: pypi
+  user: andrewyoung1991
+  password:
+    secure: fOw0LQyXTknRjBlHXPEQ1X6FWNYeBUeUuBHUWcNllFVZHVI5BptKT8iw5hc2K+nDXoocpnxkNMAdXetS1LtFyhmlgYIURhnlBsY8u4gosr70NV8nXPTD6Jit3OITuD3NQymEUQ9fa48qQTUYNthIV+m43NH894Hl+tc8lmRkBRPSi8uL69t31+6ul1XLvC8p16SObZUzRkrMlYX17qiufnx3lDBJQFWUx8z202T1QIjO9kAiF+cVtvmR3LTYKVcQ/vwqojgCCywRIwYohb0D51nb0UfjXOOySuvIRYovhcH6zmn/H5I5R4qspIi5d3tK6VPLyrKZtg94DQ+TGq/BbGOfOhhxfBVVRrx9Uif54kiB1N7fNW3sGzeagBNoMeXZfm+GPTi14usqAzSfEl+KioLV6bjeQJzTfV3FEUFg2L4E31ZCUjiBmIHSUgaNFuyR7fGdXiwd2nmjQPRBdprUuDepB5801c3cuL8VMByK1kvo2rbf+DFX9k5tjfTuwXKqqsieo0zfjLnn4Bzje/BXGD2NSqAgar/cHK1jVRan8/XNYpntr8k3uWrVxCJ/d4vumBXRW8hGq3iHr/JIieaAe3fdojJQTt/fLGL8JCdkKqnm+IWHqBakW08Nexp8lHNVsekIv6WYOxoGGcl9BHWJ4mJbo8yrUd70+PgWQLKcvFI=
+  on:
+    tags: true

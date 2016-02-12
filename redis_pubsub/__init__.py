@@ -9,6 +9,7 @@ REDIS_PUBSUB.setdefault("db", 0)
 REDIS_PUBSUB.setdefault("password", None)
 REDIS_PUBSUB.setdefault("tokenauth_method", "redis_pubsub.auth.authtoken_method")
 REDIS_PUBSUB.setdefault("websocket_url_prefix", "")
+REDIS_PUBSUB.setdefault("append_slash", settings.APPEND_SLASH)
 
 
 def get_application(loop=None):

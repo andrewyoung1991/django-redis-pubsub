@@ -49,6 +49,7 @@ setup(
     install_requires=install_requires,
     tests_require=tests_requires,
     extras_require={"websockets": websockets_require},
+    url="https://github.com/andrewyoung1991/django-redis-pubsub",
     classifiers=[
         "Development Status :: 1 - Beta",
         "Intended Audience :: Developers",

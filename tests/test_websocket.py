@@ -10,7 +10,20 @@ from aiohttp.web import Application, MsgType
 from rest_framework.authtoken.models import Token
 
 from redis_pubsub.contrib.websockets import websocket, websocket_pubsub
+from redis_pubsub.contrib.websockets.util import _clean_route
+
 from testapp.models import Message
+
+
+@pytest.mark.parametrize("route, expect", [
+    ("/hello", "/hello/"),
+    ("hello", "/hello/"),
+    ("hello/world", "/hello/world/"),
+    ("/hello/world/", "/hello/world/"),
+    ])
+def test_clean_route(route, expect):
+    route = _clean_route(route)
+    assert route == expect
 
 
 def test_websocket_wrapper():
@@ -298,7 +311,7 @@ def test_all_subscriptions(subscription):
 
         while True:
             message = yield from ws.receive()
-            if message.tp in (MsgType.ERROR, MsgType.CLOSE):
+            if message.tp in (MsgType.error, MsgType.close):
                 break
 
     @asyncio.coroutine
