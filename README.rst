@@ -48,7 +48,7 @@ You'll first need to create some publishable models.
         body = models.TextField()
 
         def save(self, *args, **kwargs):
-            if not self.channel:
+            if not hasattr(self, "channel"):
                 self.channel = self.correspondence.channel
             super(Message, self).save(*args, **kwargs)
 
@@ -64,9 +64,7 @@ You'll first need to create some publishable models.
     # websockets.py
 
     @websocket_pubsub(authenticate=True)
-    def read_messages(ws, params, **kwargs):
-        user = kwargs["user"]
-        manager = kwargs["manager"]
+    def read_messages(ws, params, user, manager):
         subscription = user.subscriptions.get(channel__name="something:unique".format(user.username))
         reader = subscription.get_reader(manager=manager)
 
@@ -75,13 +73,6 @@ You'll first need to create some publishable models.
             alert = json.dumps({"message": "new message from {0}".format(model.author.get_full_name()))
             ws.send_str(alert)
             return True
-            # return True indicates whether or not to close the subscription channel or continue
-            # listening for new publications. You may want to check if the websocket is still open
-            # with a ping/pong cycle:
-            # alert = ...
-            # ws.send_str("ping")
-            # pong = await ws.receive()
-            # if pong.data == "pong":
 
         listener = yield from reader.listen()
         yield from listener
@@ -97,7 +88,9 @@ If you choose to use `redis_pubsub.contrib.websockets` there are additional pack
 
   $ pip install aiohttp aiohttp_wsgi
 
-Websocket handlers belong in module in your application by the name of `websockets.py`. This module should export a `handlerconf`, which is a list of the names of the handlers in the module::
+Websocket handlers belong in module in your application by the name of `websockets.py`. This module should export a `handlerconf`, which is a list of the names of the handlers in the module
+
+.. code:: python
 
   @websocket("/")  # this handler will be at http://yourapp.com/
   def myhandler(ws, params, **kwargs):
@@ -105,7 +98,9 @@ Websocket handlers belong in module in your application by the name of `websocke
 
   handlerconf = ["myhandler", ]
 
-Websocket requests are handled with the excellent `aiohttp` package which takes care of the encoding/decoding, handshake, and cleanup of a websocket session. Handlers for websocket requests are coroutines decorated with either the `redis_pubsub.contrib.websockets.websocket` or `redis_pubsub.contrib.websockets.websocket_pubsub` wrappers. These wrappers handle converting your handler to a coroutine and passing arguments to your handler. A simple handler that echo's a message back to the client would look like this::
+Websocket requests are handled with the excellent `aiohttp` package which takes care of the encoding/decoding, handshake, and cleanup of a websocket session. Handlers for websocket requests are coroutines decorated with either the `redis_pubsub.contrib.websockets.websocket` or `redis_pubsub.contrib.websockets.websocket_pubsub` wrappers. These wrappers handle converting your handler to a coroutine and passing arguments to your handler. A simple handler that echo's a message back to the client would look like this
+
+.. code:: python
 
   @websocket("/echo")
   def echo(ws, params, **kwargs):
@@ -130,9 +125,13 @@ If you do decide to roll your own `tokenauth_method`, this method must accept a 
 Websocket Pubsub
 ================
 
-You can access the Pubsub methods provided by `redis_pubsub` in your websocket handlers by decorating your handler with the `redis.pubsub.contrib.websockets.websocket_pubsub` wrapper. This wrapper provides an additional argument `manager` to your handler. The manager can be used to keep track of subscription channels and stop them if necessary::
+You can access the Pubsub methods provided by `redis_pubsub` in your websocket handlers by decorating your handler with the `redis.pubsub.contrib.websockets.websocket_pubsub` wrapper. This wrapper provides an additional argument `manager` to your handler. The manager can be used to keep track of subscription channels and stop them if necessary
 
-  @websocket_pubsub("/messages", authenticate=True):
+.. code:: python
+
+  # websockets.py
+
+  @websocket_pubsub("/messages", authenticate=True)
   def message_pusher(ws, params, manager, user, **kwargs):
       subscription = user.subscriptions.get(channel__name="messages")
       reader = subscription.get_reader(manager=manager)
@@ -159,9 +158,13 @@ This example shows the main purpose of the `redis_pubsub` package, which is to l
 4) begin listening for changes
 5) listen until the channel is closed
 
-The most fruitful method offerd by a SubscriptionManager is `listen_to_all_subscriptions` which takes two arguments, a subscriber and a callback, and publishes subscriptions as they arrive::
+The most fruitful method offerd by a SubscriptionManager is `listen_to_all_subscriptions` which takes two arguments, a subscriber and a callback, and publishes subscriptions as they arrive
 
-  @websocket_pubsub("/subscriptions", authenticate=True):
+.. code:: python
+
+  # websockets.py
+
+  @websocket_pubsub("/subscriptions", authenticate=True)
   def subscriptions(ws, params, manager, user, **kwargs):
 
       def callback(channel_name, message):
@@ -172,7 +175,7 @@ The most fruitful method offerd by a SubscriptionManager is `listen_to_all_subsc
 
       while True:
           message = yield from ws.receive()
-          if message.tp not in (MsgType.ERROR, MsgType.CLOSE):
+          if message.tp not in (MsgType.error, MsgType.close):
               message = json.loads(message)
               if message["action"] == "unsubscribe":
                   subscription = user.subscriptions.get(channel__name=message["channe"])
@@ -198,17 +201,29 @@ The callback in this example will keep all subscription channels open and push m
 Deploying
 =========
 
-when deploying an application with websockets/aiohttp you will not be able to use the normal django deployment proceedures. Since your django application will be a component of an AioHttp application object, you will have to use Gunicorn as an application server. Using utilities from the `redis_pubsub.contrib.websockets` module you can create a deployment file simply::
+when deploying an application with websockets/aiohttp you will not be able to use the normal django deployment proceedures. Since your django application will be a component of an AioHttp application object, you will have to use Gunicorn as an application server. Using utilities from the `redis_pubsub.contrib.websockets` module you can create a deployment file simply
+
+.. code:: python
 
   # deployment.py
 
   import asyncio
 
+  from django.core.wsgi import get_wsgi_application
+  
+  from aiohttp_wsgi import WSGIHandler
+  
   from redis_pubsub.contrib.websockets import setup
 
+
+  wsgi_app = get_wsgi_application()  # django.setup() is called here
+  wsgi_handler = WSGIHandler(wsgi_app)
+  
   loop = asyncio.get_event_loop()
   application = setup(loop=loop)
+  # any url patterns not matched by the Websocket app go to the django app for handling
+  application.router.add_route("*", "/{path_info:.*}", wsgi_handler.handle_request)
 
 you can then start gunicorn by running::
 
-  $ gunicorn deploy:application --bind localhost:8080 --worker-class aiohttp.worker.GunicornWebWorker
+  $ gunicorn deployment:application --bind localhost:8080 --worker-class aiohttp.worker.GunicornWebWorker
