@@ -3,6 +3,7 @@ import functools as ft
 import logging
 import os
 
+from django.conf import settings
 from django.utils.module_loading import import_string
 
 from aiohttp.web import WebSocketResponse, HTTPForbidden, Application
@@ -28,6 +29,17 @@ def handle_auth(token):
     if user is None:
         raise HTTPForbidden(body=b"invalid token")
     return user
+    
+    
+def _clean_route(route):
+    """ ensure that the route can be prefixed with os.path.join and ends with a slash if.
+    """
+    if route.startswith("/"):
+        route = route[1:]
+    route_ = os.path.join(REDIS_PUBSUB["websocket_url_prefix"], route)
+    if not route_.endswith("/") and settings.APPEND_SLASH:
+        route_ = route_ + "/"
+    return route_
 
 
 def websocket(route, authenticate=False):
@@ -54,7 +66,8 @@ def websocket(route, authenticate=False):
 
             return ws
 
-        route_ = os.path.join(REDIS_PUBSUB["websocket_url_prefix"], route)
+        # cleanup the route
+        route_ = _clean_route(route)
         wrapper.route = ("GET", route_, wrapper)
         return wrapper
     return inner
@@ -95,7 +108,8 @@ def websocket_pubsub(route, authenticate=False):
 
             return ws
 
-        route_ = os.path.join(REDIS_PUBSUB["websocket_url_prefix"], route)
+        # cleanup the route
+        route_ = _clean_route(route)
         wrapper.route = ("GET", route_, wrapper)
         return wrapper
     return inner
