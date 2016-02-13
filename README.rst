@@ -227,3 +227,8 @@ when deploying an application with websockets/aiohttp you will not be able to us
 you can then start gunicorn by running::
 
   $ gunicorn deployment:application --bind localhost:8080 --worker-class aiohttp.worker.GunicornWebWorker
+
+
+.. image:: https://badges.gitter.im/andrewyoung1991/django-redis-pubsub.svg
+   :alt: Join the chat at https://gitter.im/andrewyoung1991/django-redis-pubsub
+   :target: https://gitter.im/andrewyoung1991/django-redis-pubsub?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge
