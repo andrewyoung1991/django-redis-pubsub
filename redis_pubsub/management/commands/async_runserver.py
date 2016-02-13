@@ -39,3 +39,5 @@ class Command(BaseCommand):
             loop.run_forever()
         except KeyboardInterrupt:
             print("Stopping server...")
+            server.close()
+            loop.run_until_complete(service.wait_closed())
