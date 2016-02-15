@@ -1,3 +1,5 @@
+import asyncio
+
 from django.core.management.base import BaseCommand
 from django.core.wsgi import get_wsgi_application
 
