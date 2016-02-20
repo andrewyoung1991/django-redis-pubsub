@@ -204,7 +204,7 @@ class SubscriptionManager:
     @asyncio.coroutine
     def clear(self):
         coroutines = [self.remove(reader) for reader in self.readers.values()]
-        self._future = yield from asyncio.gather(*coroutines)
+        self._future = asyncio.gather(*coroutines, return_exceptions=True)
 
     @asyncio.coroutine
     def wait_closed(self):
