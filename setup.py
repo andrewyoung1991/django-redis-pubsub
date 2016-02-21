@@ -51,11 +51,11 @@ setup(
     extras_require={"websockets": websockets_require},
     url="https://github.com/andrewyoung1991/django-redis-pubsub",
     classifiers=[
-        "Development Status :: 1 - Beta",
+        "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
         "Environment :: Web Environment",
         "Framework :: Django",
-        "License :: OSI Approved :: BSD",
+        "License :: OSI Approved :: BSD License",
         "Operating System :: OS Independent",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3.4",

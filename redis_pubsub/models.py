@@ -6,6 +6,7 @@ from django.core import serializers
 from django.db import models
 
 from . import util
+from . import managers
 
 user_model = settings.AUTH_USER_MODEL
 
@@ -26,6 +27,7 @@ class PublishableModel(models.Model):
     PUBLISH_ON_UPDATE = False
 
     channel = models.ForeignKey("Channel", related_name="publishable_%(class)ss")
+    objects = managers.PublishableModelManager()
 
     class Meta:
         abstract = True
@@ -56,6 +58,9 @@ class Channel(models.Model):
     """
     name = models.CharField(max_length=100, unique=True)
     datetime_created = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return "<Channel(name={0}, active={1})>".format(self.name, self.active)
 
     @property
     def active(self):
@@ -98,6 +103,10 @@ class Subscription(models.Model):
 
     class Meta:
         unique_together = ("subscriber", "channel")
+
+    def __str__(self):
+        args = self.channel.name, self.active, str(self.subscriber)
+        return "<Subscription(channel={0}, active={1}) for {2}>".format(*args)
 
     def get_reader(self, manager=None):
         """ returns a wrapper that takes a callback as its argument. this callback will
@@ -199,3 +208,8 @@ class ReceivedPublication(models.Model):
     publication_type = models.ForeignKey(ContentType, null=True)
     publication_id = models.PositiveIntegerField(null=True)
     publication = GenericForeignKey("publication_type", "publication_id")
+
+    def __str__(self):
+        args = self.channel.name, str(self.publication), str(self.subscriber)
+        return "<ReceivedPublication(channel_name={0}, publication={1}) for "\
+                    "{2}>".format(*args)
