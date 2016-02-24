@@ -103,9 +103,10 @@ def websocket_pubsub(route, authenticate=False):
             try:
                 yield from ws.prepare(request)
                 yield from func(ws, params, **kwargs)
-                yield from manager.stop()
             except Exception as err:  # pragma: no cover
                 logger.error(str(err))
+            finally:
+                yield from manager.stop()
 
             return ws
 
