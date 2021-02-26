@@ -1,5 +1,5 @@
 -r common.txt
-aiohttp==0.20.2
+aiohttp==3.7.4
 chardet==2.3.0
 djangorestframework==3.3.2
 djangorestframework-jwt==1.7.2
